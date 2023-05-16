@@ -7,3 +7,6 @@ edition = "2021"
 
 [dependencies]
 clap = "4.2.7"
+env_logger = "0.10.0"
+log = { version = "0.4.17", features = ["release_max_level_off"] }
+regex = "1.8.1"
