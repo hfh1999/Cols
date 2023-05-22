@@ -6,6 +6,7 @@ use clap::{
 use regex::Regex;
 //use log::debug;
 use std::io;
+mod selector;
 #[derive(Debug, PartialEq, Clone)]
 struct Span {
     inner: Vec<usize>,
@@ -50,7 +51,11 @@ fn parse_to_span(value_str: &str) -> Result<Span, clap::Error> {
     }
     if let Some(capture) = uncontinu_pattern.captures(value_str) {
         let uncontinuous_str = capture.get(0).unwrap().as_str();
-        let data:Vec<usize> = uncontinuous_str.split(',').map(|x| x.parse::<usize>().unwrap()).collect();
+        let mut data: Vec<usize> = uncontinuous_str
+            .split(',')
+            .map(|x| x.parse::<usize>().unwrap())
+            .collect();
+        data.sort();
         Ok(Span { inner: data })
     } else {
         Err(clap::Error::new(clap::error::ErrorKind::ValueValidation))
@@ -73,22 +78,18 @@ fn main() {
         .arg(arg!(<COLNUM>).value_parser(value_parser!(Span)));
 
     let matches = app.get_matches();
-    let rows_num = matches.get_one::<usize>("rownum").unwrap();
-    let cols_num = matches.get_one::<Span>("COLNUM").unwrap().inner[0];
+    let row_nums = *matches.get_one::<usize>("rownum").unwrap();
+    let cols_nums = matches.get_one::<Span>("COLNUM").unwrap();
 
     //debug!("rows_num = {}, cols_num = {}",rows_num, cols_num);
-    println!("rows_num = {}, cols_num = {}", rows_num, cols_num);
+    //println!("rows_num = {}, cols_num = {}", rows_num, cols_num);
 
     let instream = io::stdin();
-    let lines = instream.lines().map(|l| l.unwrap());
-    for (_, line) in lines.enumerate() {
-        let words: Vec<&str> = line.split(' ').collect();
-        if words.len() - 1 < cols_num {
-            println!(" ");
-        } else {
-            println!("{}", words[cols_num]);
-        }
-    }
+    let my_selector = selector::TableSelector::builder()
+        .set_head_rows(row_nums)
+        .set_choose_cols(cols_nums.inner.clone())
+        .build();
+    my_selector.tb_select(instream);
 }
 
 #[cfg(test)]
@@ -98,12 +99,22 @@ mod test {
     #[test]
     fn parse_to_span_continuous1() {
         let v1 = parse_to_span("1-3").unwrap();
-        assert_eq!(v1,Span{inner:(1..4).collect()});
+        assert_eq!(
+            v1,
+            Span {
+                inner: (1..4).collect()
+            }
+        );
     }
     #[test]
     fn parse_to_span_continuous2() {
         let v1 = parse_to_span("1-1").unwrap();
-        assert_eq!(v1,Span{inner:(1..2).collect()});
+        assert_eq!(
+            v1,
+            Span {
+                inner: (1..2).collect()
+            }
+        );
     }
     #[test]
     #[should_panic]
@@ -112,52 +123,60 @@ mod test {
     }
 
     #[test]
-    fn parse_to_span_uncontinuous1()
-    {
+    fn parse_to_span_uncontinuous1() {
         let v1 = parse_to_span("1,2,3").unwrap();
-        assert_eq!(v1,Span{inner:vec![1,2,3]});
+        assert_eq!(
+            v1,
+            Span {
+                inner: vec![1, 2, 3]
+            }
+        );
     }
-    
+
     #[test]
-    fn parse_to_span_uncontinuous2()
-    {
+    fn parse_to_span_uncontinuous2() {
         let v1 = parse_to_span("3").unwrap();
-        assert_eq!(v1,Span{inner:vec![3]});
+        assert_eq!(v1, Span { inner: vec![3] });
+    }
+
+    #[test]
+    fn parse_to_span_uncontinuous3() {
+        let v1 = parse_to_span("3,2,1").unwrap();
+        assert_eq!(
+            v1,
+            Span {
+                inner: vec![1, 2, 3]
+            }
+        );
     }
 
     #[test]
     #[should_panic]
-    fn parse_to_span_uncontinuous_error1()
-    {
+    fn parse_to_span_uncontinuous_error1() {
         let _ = parse_to_span("3,").unwrap();
     }
 
     #[test]
     #[should_panic]
-    fn parse_to_span_uncontinuous_error2()
-    {
+    fn parse_to_span_uncontinuous_error2() {
         let _ = parse_to_span(",3").unwrap();
     }
 
     #[test]
     #[should_panic]
-    fn parse_to_span_error1()
-    {
+    fn parse_to_span_error1() {
         let _ = parse_to_span("3434e").unwrap();
     }
 
     #[test]
     #[should_panic]
-    fn parse_to_span_error2()
-    {
+    fn parse_to_span_error2() {
         let _ = parse_to_span("-32432").unwrap();
     }
 
     #[test]
     #[should_panic]
-    fn parse_to_span_error3()
-    {
+    fn parse_to_span_error3() {
         let _ = parse_to_span("8888-").unwrap();
     }
-
 }
