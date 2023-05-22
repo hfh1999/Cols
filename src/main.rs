@@ -73,7 +73,7 @@ fn main() {
         .arg(
             arg!( -r --rownum <ROWNUM>)
                 .value_parser(value_parser!(usize))
-                .default_value("1"),
+                .default_value("0"),
         )
         .arg(arg!(<COLNUM>).value_parser(value_parser!(Span)));
 
